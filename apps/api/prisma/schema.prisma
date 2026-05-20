@@ -1,0 +1,565 @@
+// Snifff — Prisma schema
+// Models: User, Pet, Breeder, Swipe, Match, Chat, Message, Post, Follow, Report, Subscription, Notification, AI embeddings
+// Vector + PostGIS handled via @db.* attributes; some columns use Unsupported until generated client catches up — wrapped in raw SQL where needed.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, vector, pg_trgm]
+}
+
+// =====================================================================
+// ENUMS
+// =====================================================================
+enum SubscriptionTier {
+  FREE
+  PLUS
+  GOLD
+  BREEDER_PRO
+}
+
+enum PetSpecies {
+  DOG
+  CAT
+  RABBIT
+  BIRD
+  EXOTIC
+  OTHER
+}
+
+enum PetGender {
+  MALE
+  FEMALE
+}
+
+enum PetSize {
+  TOY
+  SMALL
+  MEDIUM
+  LARGE
+  GIANT
+}
+
+enum VaccStatus {
+  UNKNOWN
+  PARTIAL
+  COMPLETE
+  EXPIRED
+}
+
+enum SwipeAction {
+  SNIFF
+  SUPER_SNIFF
+  PASS
+}
+
+enum SwipeMode {
+  FRIENDS
+  BREEDING
+  ADOPTION
+  PLAYDATE
+  LOST
+}
+
+enum MatchStatus {
+  ACTIVE
+  EXPIRED
+  UNMATCHED
+  BLOCKED
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  VOICE
+  STICKER
+  SYSTEM
+}
+
+enum PostType {
+  PHOTO
+  CAROUSEL
+  TAIL
+  STORY
+}
+
+enum PostVisibility {
+  PUBLIC
+  FRIENDS
+  PACK
+}
+
+enum ReportTarget {
+  USER
+  PET
+  POST
+  MESSAGE
+  CHAT
+}
+
+enum ReportReason {
+  SPAM
+  NUDITY
+  ABUSE
+  HARASSMENT
+  FAKE
+  UNDERAGE
+  BREEDING_VIOLATION
+  ANIMAL_ABUSE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  TRIAGED
+  ACTIONED
+  DISMISSED
+}
+
+enum NotificationType {
+  MATCH_NEW
+  MESSAGE_NEW
+  POST_LIKE
+  POST_COMMENT
+  FOLLOW_NEW
+  ADOPTION_INTEREST
+  BREEDING_INQUIRY
+  LOST_PET_ALERT
+  STREAK_MILESTONE
+  SUBSCRIPTION_RENEW
+  SYSTEM
+}
+
+enum BillingStore {
+  APPLE
+  GOOGLE
+  STRIPE
+}
+
+enum SubStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+  PAUSED
+}
+
+// =====================================================================
+// CORE: USERS
+// =====================================================================
+model User {
+  id                String   @id @default(uuid()) @db.Uuid
+  phone             String?  @unique
+  email             String?  @unique
+  firstName         String?
+  avatarUrl         String?
+  dob               DateTime? @db.Date
+  gender            String?
+  bio               String?
+  idVerified        Boolean  @default(false)
+  idVerifiedAt      DateTime?
+  language          String?  @db.VarChar(8)
+  countryCode       String?  @db.VarChar(4)
+  pushToken         String?
+  pushPlatform      String?  // ios | android | web
+  subscriptionTier  SubscriptionTier @default(FREE)
+  coins             Int      @default(0)
+  streak            Int      @default(0)
+  streakLastAt      DateTime?
+  flags             Json     @default("{}")
+  lastActiveAt      DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  pets              Pet[]
+  breederProfile    Breeder?
+  swipes            Swipe[]
+  reportsMade       Report[]    @relation("ReporterReports")
+  notifications     Notification[]
+  subscriptions     Subscription[]
+  coinTxs           CoinTransaction[]
+  messagesSent      Message[]   @relation("MessageSender")
+  postLikes         PostLike[]
+  postComments     PostComment[]
+  oauthAccounts    OAuthAccount[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([lastActiveAt])
+}
+
+model OAuthAccount {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  provider    String   // apple | google | facebook
+  providerUid String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUid])
+  @@index([userId])
+}
+
+// =====================================================================
+// PETS
+// =====================================================================
+model Pet {
+  id              String     @id @default(uuid()) @db.Uuid
+  ownerId         String     @db.Uuid
+  name            String     @db.VarChar(80)
+  species         PetSpecies
+  breedPrimary    String?    @db.VarChar(120)
+  breedSecondary  String?    @db.VarChar(120)
+  breedVerified   Boolean    @default(false)
+  dob             DateTime?  @db.Date
+  gender          PetGender?
+  intact          Boolean    @default(true)
+  size            PetSize?
+  weightKg        Decimal?   @db.Decimal(5, 2)
+  personality     Json       @default("{}")  // {energy:8, friendly:9, anxious:2, ...}
+  petTypeCode     String?    @db.VarChar(8)  // 16-type quiz output
+  bio             String?
+  bioAiGenerated  Boolean    @default(false)
+  photos          Json       @default("[]")  // ordered array of {url, blurhash, width, height}
+  heroVideoUrl    String?
+  vaccStatus      VaccStatus @default(UNKNOWN)
+  vaccVerifiedBy  String?    @db.Uuid
+  vaccVerifiedAt  DateTime?
+  healthNotes     String?
+  isBreeding      Boolean    @default(false)
+  isAdoptable     Boolean    @default(false)
+  isLost          Boolean    @default(false)
+  city            String?    @db.VarChar(120)
+  // PostGIS POINT via raw SQL; Prisma column shadowed as Unsupported
+  location        Unsupported("geography(Point,4326)")?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
+  owner           User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  swipesFrom      Swipe[]    @relation("SwiperPet")
+  swipesTo        Swipe[]    @relation("TargetPet")
+  matchesAsA      Match[]    @relation("PetA")
+  matchesAsB      Match[]    @relation("PetB")
+  posts           Post[]
+  followers       Follow[]   @relation("Followee")
+  following       Follow[]   @relation("Follower")
+  embedding       PetEmbedding?
+  littersAsMom    Litter[]   @relation("LitterMom")
+  littersAsDad    Litter[]   @relation("LitterDad")
+
+  @@index([ownerId])
+  @@index([species])
+  @@index([breedPrimary])
+  @@index([isAdoptable])
+  @@index([isLost])
+}
+
+// pet_embeddings — vector lookups for two-tower recommendations
+model PetEmbedding {
+  petId      String                     @id @db.Uuid
+  // vector(384) — stored via raw SQL migrations; Prisma typed as Unsupported
+  embedding  Unsupported("vector(384)")
+  updatedAt  DateTime                   @default(now()) @updatedAt
+  pet        Pet                        @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+// =====================================================================
+// BREEDING
+// =====================================================================
+model Breeder {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @db.Uuid
+  kennelName    String   @db.VarChar(160)
+  registry      String?  @db.VarChar(40)   // AKC | UKC | FCI | KC | CKC
+  registryNo    String?  @db.VarChar(40)
+  verified      Boolean  @default(false)
+  verifiedAt    DateTime?
+  verificationDocs Json @default("[]")
+  bio           String?
+  rating        Decimal  @default(0) @db.Decimal(3, 2)
+  reviewsCount  Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  litters       Litter[]
+
+  @@index([verified])
+}
+
+model Litter {
+  id           String   @id @default(uuid()) @db.Uuid
+  breederId    String   @db.Uuid
+  momPetId     String   @db.Uuid
+  dadPetId     String   @db.Uuid
+  expectedAt   DateTime?
+  bornAt       DateTime?
+  count        Int?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  breeder      Breeder  @relation(fields: [breederId], references: [id], onDelete: Cascade)
+  mom          Pet      @relation("LitterMom", fields: [momPetId], references: [id])
+  dad          Pet      @relation("LitterDad", fields: [dadPetId], references: [id])
+
+  @@index([breederId])
+}
+
+// =====================================================================
+// MATCHING
+// =====================================================================
+model Swipe {
+  id          BigInt      @id @default(autoincrement())
+  swiperUserId String     @db.Uuid
+  swiperPetId String      @db.Uuid
+  targetPetId String      @db.Uuid
+  mode        SwipeMode
+  action      SwipeAction
+  createdAt   DateTime    @default(now())
+
+  swiperUser  User        @relation(fields: [swiperUserId], references: [id], onDelete: Cascade)
+  swiperPet   Pet         @relation("SwiperPet", fields: [swiperPetId], references: [id], onDelete: Cascade)
+  targetPet   Pet         @relation("TargetPet", fields: [targetPetId], references: [id], onDelete: Cascade)
+
+  @@unique([swiperPetId, targetPetId, mode])
+  @@index([swiperPetId, createdAt])
+  @@index([targetPetId])
+}
+
+model Match {
+  id                       String      @id @default(uuid()) @db.Uuid
+  petAId                   String      @db.Uuid
+  petBId                   String      @db.Uuid
+  mode                     SwipeMode
+  compatibilityScore       Int
+  initiatorPetId           String      @db.Uuid
+  initiatorMustRespondBy   DateTime
+  status                   MatchStatus @default(ACTIVE)
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  petA                     Pet         @relation("PetA", fields: [petAId], references: [id], onDelete: Cascade)
+  petB                     Pet         @relation("PetB", fields: [petBId], references: [id], onDelete: Cascade)
+  chat                     Chat?
+
+  @@unique([petAId, petBId, mode])
+  @@index([status])
+  @@index([initiatorMustRespondBy])
+}
+
+// =====================================================================
+// MESSAGING
+// =====================================================================
+model Chat {
+  id        String    @id @default(uuid()) @db.Uuid
+  matchId   String    @unique @db.Uuid
+  createdAt DateTime  @default(now())
+
+  match     Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  messages  Message[]
+}
+
+model Message {
+  id             String      @id @default(uuid()) @db.Uuid
+  chatId         String      @db.Uuid
+  senderUserId   String      @db.Uuid
+  type           MessageType @default(TEXT)
+  content        String?
+  mediaUrl       String?
+  toxicityScore  Decimal?    @db.Decimal(3, 2)
+  blocked        Boolean     @default(false)
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  createdAt      DateTime    @default(now())
+
+  chat           Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender         User        @relation("MessageSender", fields: [senderUserId], references: [id])
+
+  @@index([chatId, createdAt])
+}
+
+// =====================================================================
+// SOCIAL
+// =====================================================================
+model Post {
+  id                String          @id @default(uuid()) @db.Uuid
+  petId             String          @db.Uuid
+  type              PostType
+  media             Json            @default("[]")
+  caption           String?
+  captionAiGenerated Boolean        @default(false)
+  hashtags          String[]        @default([])
+  audioId           String?         @db.Uuid
+  visibility        PostVisibility  @default(PUBLIC)
+  likeCount         Int             @default(0)
+  commentCount      Int             @default(0)
+  viewCount         Int             @default(0)
+  createdAt         DateTime        @default(now())
+  deletedAt         DateTime?
+
+  pet               Pet             @relation(fields: [petId], references: [id], onDelete: Cascade)
+  likes             PostLike[]
+  comments          PostComment[]
+
+  @@index([petId, createdAt(sort: Desc)])
+  @@index([visibility, createdAt(sort: Desc)])
+}
+
+model PostLike {
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+}
+
+model PostComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  parentId  String?  @db.Uuid
+  body      String
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    PostComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   PostComment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+}
+
+model Follow {
+  followerPetId String   @db.Uuid
+  followeePetId String   @db.Uuid
+  createdAt     DateTime @default(now())
+
+  follower      Pet      @relation("Follower", fields: [followerPetId], references: [id], onDelete: Cascade)
+  followee      Pet      @relation("Followee", fields: [followeePetId], references: [id], onDelete: Cascade)
+
+  @@id([followerPetId, followeePetId])
+  @@index([followeePetId])
+}
+
+// =====================================================================
+// SAFETY
+// =====================================================================
+model Report {
+  id            String        @id @default(uuid()) @db.Uuid
+  reporterId    String        @db.Uuid
+  targetKind    ReportTarget
+  targetId      String        @db.Uuid
+  reason        ReportReason
+  detail        String?
+  status        ReportStatus  @default(OPEN)
+  aiScore       Decimal?      @db.Decimal(3, 2)
+  reviewerId    String?       @db.Uuid
+  createdAt     DateTime      @default(now())
+  resolvedAt    DateTime?
+
+  reporter      User          @relation("ReporterReports", fields: [reporterId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([targetKind, targetId])
+}
+
+model ModerationAction {
+  id           String   @id @default(uuid()) @db.Uuid
+  targetKind   ReportTarget
+  targetId     String   @db.Uuid
+  action       String   // hide | suspend | delete | warn | clear
+  moderatorId  String?  @db.Uuid
+  aiAuto       Boolean  @default(false)
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([targetKind, targetId])
+}
+
+// =====================================================================
+// NOTIFICATIONS
+// =====================================================================
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  payload   Json
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt(sort: Desc)])
+}
+
+// =====================================================================
+// MONETIZATION
+// =====================================================================
+model SubscriptionPlan {
+  id            String           @id @default(uuid()) @db.Uuid
+  code          String           @unique     // plus_monthly | gold_yearly | breeder_pro_monthly | ...
+  tier          SubscriptionTier
+  priceCents    Int
+  currency      String           @default("USD") @db.VarChar(3)
+  billingCycle  String           // monthly | yearly
+  features      Json             @default("{}")
+  active        Boolean          @default(true)
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @db.Uuid
+  planId      String          @db.Uuid
+  status      SubStatus       @default(ACTIVE)
+  startedAt   DateTime
+  renewsAt    DateTime?
+  canceledAt  DateTime?
+  store       BillingStore
+  externalId  String?         // stripe sub id / apple original transaction id
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId, status])
+  @@unique([externalId])
+}
+
+model CoinTransaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  delta       Int
+  reason      String
+  balanceAfter Int
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// =====================================================================
+// AI RECS
+// =====================================================================
+model RecommendationLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  servedAt      DateTime @default(now())
+  petIds        String[] @db.Uuid
+  modelVersion  String   @db.VarChar(20)
+  context       Json     @default("{}")
+}

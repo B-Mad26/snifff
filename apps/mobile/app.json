@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Snifff",
+    "slug": "snifff",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "scheme": "snifff",
+    "userInterfaceStyle": "automatic",
+    "splash": { "image": "./src/assets/splash.png", "resizeMode": "cover", "backgroundColor": "#FF6B6B" },
+    "ios": { "supportsTablet": false, "bundleIdentifier": "app.snifff.ios" },
+    "android": { "package": "app.snifff.android", "adaptiveIcon": { "foregroundImage": "./src/assets/adaptive-icon.png", "backgroundColor": "#FF6B6B" } },
+    "plugins": [
+      "expo-secure-store",
+      ["expo-notifications", { "color": "#FF6B6B" }],
+      ["expo-location", { "locationWhenInUsePermission": "Snifff uses your location to find nearby pets." }]
+    ]
+  }
+}
