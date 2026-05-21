@@ -1,13 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/common/prisma.service';
 import { CompatibilityService } from './compatibility.service';
 
-/**
- * Recommendation engine.
- * - Phase 1 (this impl): SQL-based shortlist (geo + breed + filters) → CompatibilityService re-rank
- * - Phase 2+: two-tower embeddings via Pinecone in PetEmbedding store (see pgvector schema)
- */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 @Injectable()
 export class RecommendService {
   constructor(private prisma: PrismaService, private compat: CompatibilityService) {}
@@ -16,45 +19,43 @@ export class RecommendService {
     const pet = await this.prisma.pet.findUnique({ where: { id: petId } });
     if (!pet) return [];
 
-    // Already-swiped IDs to exclude
-    const seen = await this.prisma.swipe.findMany({ where: { swiperPetId: petId, mode: mode as any }, select: { targetPetId: true } });
-    const seenIds = seen.map(s => s.targetPetId);
+    const seen = await this.prisma.swipe.findMany({
+      where: { swiperPetId: petId, mode: mode as any },
+      select: { targetPetId: true },
+    });
+    const seenIds = new Set(seen.map(s => s.targetPetId));
 
-    const modeFilter =
-      mode === 'ADOPTION' ? Prisma.sql`AND is_adoptable = TRUE` :
-      mode === 'LOST'     ? Prisma.sql`AND is_lost = TRUE` :
-      mode === 'BREEDING' ? Prisma.sql`AND is_breeding = TRUE AND intact = TRUE AND gender <> ${pet.gender}::"PetGender"` :
-      Prisma.sql``;
+    const modeWhere: any = {
+      deletedAt: null,
+      ownerId: { not: userId },
+      id: { not: petId },
+      ...(mode === 'ADOPTION' && { isAdoptable: true }),
+      ...(mode === 'LOST'     && { isLost: true }),
+      ...(mode === 'BREEDING' && { isBreeding: true, intact: true, gender: { not: pet.gender } }),
+    };
 
-    const seenFilter = seenIds.length > 0
-      ? Prisma.sql`AND id <> ALL(${seenIds}::uuid[])`
-      : Prisma.sql``;
+    const candidates = await this.prisma.pet.findMany({
+      where: modeWhere,
+      take: limit * 3,
+    });
 
-    // Shortlist via PostGIS — exclude same owner, exclude already-swiped
-    const candidates = await this.prisma.$queryRaw<any[]>`
-      SELECT id, name, breed_primary, photos, dob, size, gender, personality, vacc_status,
-             ST_Distance(location, (SELECT location FROM "Pet" WHERE id = ${petId}::uuid)) / 1000.0 AS distance_km
-      FROM "Pet"
-      WHERE deleted_at IS NULL
-        AND owner_id <> ${userId}::uuid
-        AND id <> ${petId}::uuid
-        ${seenFilter}
-        ${modeFilter}
-        AND location IS NOT NULL
-      ORDER BY ST_Distance(location, (SELECT location FROM "Pet" WHERE id = ${petId}::uuid)) ASC
-      LIMIT ${limit * 3};
-    `;
+    const filtered = candidates.filter(c => !seenIds.has(c.id));
 
-    // Re-rank by compatibility
-    const scored = await Promise.all(candidates.map(async c => ({
-      ...c,
-      compatibilityScore: await this.compat.score(petId, c.id),
-    })));
+    const scored = await Promise.all(filtered.map(async c => {
+      const distanceKm = (pet.lat != null && pet.lng != null && c.lat != null && c.lng != null)
+        ? haversineKm(pet.lat, pet.lng, c.lat, c.lng)
+        : 999;
+      return {
+        ...c,
+        distanceKm,
+        compatibilityScore: await this.compat.score(petId, c.id),
+      };
+    }));
+
     scored.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
 
-    // Log for ML training
     await this.prisma.recommendationLog.create({
-      data: { userId, petIds: scored.slice(0, limit).map(s => s.id), modelVersion: 'v1.phase1' },
+      data: { userId, petIds: scored.slice(0, limit).map(s => s.id), modelVersion: 'v1.phase1-haversine' },
     });
 
     return scored.slice(0, limit);

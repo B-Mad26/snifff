@@ -24,7 +24,7 @@ async function bootstrap() {
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swagger));
 
-  const port = Number(process.env.API_PORT ?? 4000);
+  const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
   await app.listen(port);
   Logger.log(`🐾 Snifff API listening on http://localhost:${port}  •  docs /docs`, 'Bootstrap');
 }

@@ -3,14 +3,12 @@
 // Vector + PostGIS handled via @db.* attributes; some columns use Unsupported until generated client catches up — wrapped in raw SQL where needed.
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  extensions = [postgis, vector, pg_trgm]
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // =====================================================================
@@ -237,8 +235,8 @@ model Pet {
   isAdoptable     Boolean    @default(false)
   isLost          Boolean    @default(false)
   city            String?    @db.VarChar(120)
-  // PostGIS POINT via raw SQL; Prisma column shadowed as Unsupported
-  location        Unsupported("geography(Point,4326)")?
+  lat             Float?
+  lng             Float?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   deletedAt       DateTime?
@@ -251,7 +249,6 @@ model Pet {
   posts           Post[]
   followers       Follow[]   @relation("Followee")
   following       Follow[]   @relation("Follower")
-  embedding       PetEmbedding?
   littersAsMom    Litter[]   @relation("LitterMom")
   littersAsDad    Litter[]   @relation("LitterDad")
 
@@ -260,15 +257,6 @@ model Pet {
   @@index([breedPrimary])
   @@index([isAdoptable])
   @@index([isLost])
-}
-
-// pet_embeddings — vector lookups for two-tower recommendations
-model PetEmbedding {
-  petId      String                     @id @db.Uuid
-  // vector(384) — stored via raw SQL migrations; Prisma typed as Unsupported
-  embedding  Unsupported("vector(384)")
-  updatedAt  DateTime                   @default(now()) @updatedAt
-  pet        Pet                        @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
 // =====================================================================

@@ -27,12 +27,10 @@ export class CompatibilityService {
     ]);
     if (!a || !b) return 0;
 
-    // distance via PostGIS
-    const distRow = await this.prisma.$queryRaw<{ km: number }[]>`
-      SELECT ST_Distance(p1.location, p2.location) / 1000.0 AS km
-      FROM "Pet" p1, "Pet" p2 WHERE p1.id = ${a.id}::uuid AND p2.id = ${b.id}::uuid`;
-    const km = distRow[0]?.km ?? 50;
-    const dScore   = Math.max(0, 100 - km * 2);                                     // 50km → 0
+    const km = (a.lat != null && a.lng != null && b.lat != null && b.lng != null)
+      ? this.haversineKm(a.lat, a.lng, b.lat, b.lng)
+      : 50;
+    const dScore = Math.max(0, 100 - km * 2);
     const breedScr = a.breedPrimary && a.breedPrimary === b.breedPrimary ? 100 : 60;
     const persScr  = this.cosine(a.personality as any, b.personality as any) * 100;
     const sizeScr  = this.sizeCompat(a.size, b.size);
@@ -52,6 +50,15 @@ export class CompatibilityService {
       this.W.owner       * ownerScr;
 
     return Math.round(Math.max(0, Math.min(100, final)));
+  }
+
+  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   private cosine(x: Record<string, number> = {}, y: Record<string, number> = {}) {
