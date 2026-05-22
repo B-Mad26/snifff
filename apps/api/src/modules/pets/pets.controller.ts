@@ -23,7 +23,23 @@ class CreatePetDto {
   @IsOptional() @IsNumber() lng?: number;
 }
 
-class UpdatePetDto extends CreatePetDto { @IsOptional() declare name?: any; @IsOptional() declare species?: any; }
+class UpdatePetDto {
+  @IsOptional() @IsString() @MaxLength(80) name?: string;
+  @IsOptional() @IsEnum(['DOG','CAT','RABBIT','BIRD','EXOTIC','OTHER']) species?: any;
+  @IsOptional() @IsString() breedPrimary?: string;
+  @IsOptional() @IsString() breedSecondary?: string;
+  @IsOptional() @IsDateString() dob?: string;
+  @IsOptional() @IsEnum(['MALE','FEMALE']) gender?: any;
+  @IsOptional() @IsBoolean() intact?: boolean;
+  @IsOptional() @IsEnum(['TOY','SMALL','MEDIUM','LARGE','GIANT']) size?: any;
+  @IsOptional() @IsNumber() weightKg?: number;
+  @IsOptional() @IsObject() personality?: Record<string, number>;
+  @IsOptional() @IsString() @MaxLength(2000) bio?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(9) photos?: any[];
+  @IsOptional() @IsString() city?: string;
+  @IsOptional() @IsNumber() lat?: number;
+  @IsOptional() @IsNumber() lng?: number;
+}
 
 class NearbyQueryDto {
   @IsNumber() @Min(0) lat!: number;
