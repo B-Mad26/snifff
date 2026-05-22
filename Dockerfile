@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:22-slim
 RUN npm install -g pnpm@11
 WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json turbo.json ./
