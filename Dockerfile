@@ -10,4 +10,4 @@ RUN pnpm --filter @snifff/api prisma:generate
 RUN pnpm --filter @snifff/api build
 ENV NODE_ENV=production
 EXPOSE 4000
-CMD ["sh", "-c", "node node_modules/.bin/prisma migrate deploy --schema=apps/api/prisma/schema.prisma && node apps/api/dist/main.js"]
+CMD ["sh", "-c", "pnpm --filter @snifff/api prisma:migrate:deploy && node apps/api/dist/main.js"]
