@@ -1,10 +1,19 @@
 import { Body, Controller, Post, UseGuards, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { IsString, IsOptional, Matches, MinLength } from 'class-validator';
+import { IsString, IsOptional, IsEmail, Matches, MinLength } from 'class-validator';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '@/common/decorators/current-user.decorator';
 
+class RegisterDto {
+  @IsEmail() email!: string;
+  @IsString() @MinLength(6) password!: string;
+  @IsOptional() @IsString() phone?: string;
+}
+class LoginDto {
+  @IsEmail() email!: string;
+  @IsString() password!: string;
+}
 class SendOtpDto {
   @Matches(/^\+\d{8,15}$/, { message: 'phone must be E.164 (e.g. +14155551212)' }) phone!: string;
 }
@@ -23,6 +32,14 @@ class OAuthDto {
 @Controller('auth')
 export class AuthController {
   constructor(private auth: AuthService) {}
+
+  @Post('register')
+  @ApiOperation({ summary: 'Register with email + password' })
+  register(@Body() dto: RegisterDto) { return this.auth.register(dto.email, dto.password, dto.phone); }
+
+  @Post('login')
+  @ApiOperation({ summary: 'Login with email + password' })
+  login(@Body() dto: LoginDto) { return this.auth.login(dto.email, dto.password); }
 
   @Post('otp/send')
   @ApiOperation({ summary: 'Send phone OTP via Twilio Verify' })

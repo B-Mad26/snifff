@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Snifff 🐾</title>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #0d0d0d;
+    color: #f0f0f0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── App Shell ── */
+  #app {
+    width: 100%;
+    max-width: 390px;
+    min-height: 100dvh;
+    margin: 0 auto;
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 60px rgba(0,0,0,.6);
+  }
+
+  /* ── Screen ── */
+  .screen {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .screen.active { display: flex; }
+
+  /* ── Top Bar ── */
+  .topbar {
+    padding: 16px 20px 12px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .topbar-title { color: #f0f0f0; }
+  .topbar-action {
+    background: #ff6b6b;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .topbar-action:active { opacity: .7; }
+
+  /* ── Scroll area ── */
+  .scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px;
+  }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  /* ── Bottom Nav ── */
+  #bottom-nav {
+    display: none;
+    flex-shrink: 0;
+    background: #111;
+    border-top: 1px solid #2a2a2a;
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+  }
+  #bottom-nav.visible { display: flex; }
+  .nav-tabs {
+    display: flex;
+    width: 100%;
+  }
+  .nav-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 0;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: #555;
+    font-size: 10px;
+    font-weight: 500;
+    transition: color .2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-tab.active { color: #ff6b6b; }
+  .nav-tab svg, .nav-tab .nav-icon { font-size: 22px; line-height: 1; }
+
+  /* ── Auth Screen ── */
+  #auth-screen {
+    justify-content: center;
+    align-items: center;
+    min-height: 100dvh;
+    padding: 32px 24px;
+    background: linear-gradient(160deg, #1a1a1a 0%, #0d0d0d 100%);
+  }
+  .auth-logo {
+    font-size: 56px;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .auth-heading {
+    font-size: 32px;
+    font-weight: 800;
+    text-align: center;
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+  }
+  .auth-sub {
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 36px;
+  }
+  .auth-toggle {
+    display: flex;
+    background: #111;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 24px;
+  }
+  .toggle-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: #666;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .toggle-btn.active {
+    background: #ff6b6b;
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(255,107,107,.4);
+  }
+  .auth-form { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+  .input-wrap { position: relative; }
+  .input-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .field {
+    width: 100%;
+    background: #111;
+    border: 1.5px solid #2a2a2a;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #f0f0f0;
+    font-size: 15px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .field:focus { border-color: #ff6b6b; }
+  .field::placeholder { color: #444; }
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: opacity .15s, transform .1s;
+    box-shadow: 0 4px 20px rgba(255,107,107,.35);
+  }
+  .btn-primary:active { opacity: .85; transform: scale(.98); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .error-msg {
+    color: #ff6b6b;
+    font-size: 13px;
+    text-align: center;
+    padding: 8px 12px;
+    background: rgba(255,107,107,.1);
+    border-radius: 8px;
+    display: none;
+  }
+  .error-msg.visible { display: block; }
+
+  /* ── Cards ── */
+  .card {
+    background: #222;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid #2e2e2e;
+    margin-bottom: 14px;
+  }
+
+  /* ── Discover ── */
+  .discover-card {
+    background: #222;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid #2e2e2e;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  }
+  .pet-photo {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    display: block;
+    background: #2a2a2a;
+  }
+  .pet-photo-placeholder {
+    width: 100%;
+    aspect-ratio: 4/3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #2a2a2a, #222);
+    color: #444;
+    font-size: 48px;
+    gap: 8px;
+  }
+  .pet-photo-placeholder span { font-size: 13px; color: #555; }
+  .pet-info {
+    padding: 18px;
+  }
+  .pet-name-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .pet-name { font-size: 22px; font-weight: 700; }
+  .pet-species-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: rgba(78,205,196,.15);
+    color: #4ecdc4;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .pet-breed { font-size: 13px; color: #888; margin-bottom: 8px; }
+  .pet-bio { font-size: 14px; color: #bbb; line-height: 1.5; margin-bottom: 12px; }
+  .pet-distance {
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .swipe-actions {
+    display: flex;
+    gap: 10px;
+    padding: 0 18px 18px;
+  }
+  .swipe-btn {
+    flex: 1;
+    padding: 14px 8px;
+    border: none;
+    border-radius: 14px;
+    font-size: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform .1s, box-shadow .1s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .swipe-btn span { font-size: 10px; font-weight: 700; letter-spacing: .5px; }
+  .swipe-btn:active { transform: scale(.95); }
+  .btn-pass { background: rgba(255,255,255,.06); color: #aaa; }
+  .btn-pass:active { box-shadow: 0 0 20px rgba(255,255,255,.1); }
+  .btn-friend { background: rgba(255,214,0,.1); color: #ffd600; }
+  .btn-friend:active { box-shadow: 0 0 20px rgba(255,214,0,.2); }
+  .btn-date { background: rgba(255,107,107,.12); color: #ff6b6b; }
+  .btn-date:active { box-shadow: 0 0 20px rgba(255,107,107,.3); }
+  .no-more {
+    text-align: center;
+    padding: 60px 20px;
+    color: #555;
+  }
+  .no-more .big-emoji { font-size: 56px; display: block; margin-bottom: 12px; }
+  .no-more h3 { font-size: 18px; color: #888; margin-bottom: 6px; }
+  .no-more p { font-size: 14px; }
+
+  /* ── My Pets ── */
+  .pet-list-card {
+    background: #222;
+    border-radius: 16px;
+    border: 1px solid #2e2e2e;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .pet-list-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    gap: 14px;
+  }
+  .pet-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .pet-list-info { flex: 1; min-width: 0; }
+  .pet-list-name { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+  .pet-list-meta { font-size: 12px; color: #666; }
+  .pet-list-actions { display: flex; gap: 8px; }
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: opacity .15s;
+  }
+  .icon-btn:active { opacity: .7; }
+  .btn-delete { background: rgba(255,107,107,.12); color: #ff6b6b; }
+
+  /* ── Add Pet Form ── */
+  #add-pet-panel {
+    display: none;
+    background: #1a1a1a;
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    overflow-y: auto;
+    flex-direction: column;
+  }
+  #add-pet-panel.open { display: flex; }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #2a2a2a;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .back-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #2a2a2a;
+    border: none;
+    color: #f0f0f0;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .panel-title { font-size: 18px; font-weight: 700; }
+  .panel-body { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  select.field { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+
+  /* ── Matches ── */
+  .match-card {
+    background: #222;
+    border-radius: 16px;
+    border: 1px solid #2e2e2e;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: background .15s;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .match-card:active { background: #2a2a2a; }
+  .match-avatars {
+    position: relative;
+    width: 56px;
+    height: 42px;
+    flex-shrink: 0;
+  }
+  .match-av {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    position: absolute;
+    border: 2px solid #222;
+  }
+  .match-av:first-child { top: 0; left: 0; z-index: 2; }
+  .match-av:last-child { bottom: 0; right: 0; z-index: 1; background: linear-gradient(135deg, #4ecdc4, #44a8a2); }
+  .match-info { flex: 1; min-width: 0; }
+  .match-names { font-size: 15px; font-weight: 600; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .match-meta { font-size: 12px; color: #666; }
+  .match-mode {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+  }
+  .match-mode.DATE { background: rgba(255,107,107,.15); color: #ff6b6b; }
+  .match-mode.FRIEND { background: rgba(255,214,0,.12); color: #ffd600; }
+
+  /* ── Chat Panel ── */
+  #chat-panel {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: #1a1a1a;
+    flex-direction: column;
+  }
+  #chat-panel.open { display: flex; }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chat-messages::-webkit-scrollbar { display: none; }
+  .msg {
+    max-width: 78%;
+    padding: 10px 14px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+  .msg.mine {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .msg.theirs {
+    align-self: flex-start;
+    background: #2a2a2a;
+    color: #f0f0f0;
+    border-bottom-left-radius: 4px;
+  }
+  .msg-time { font-size: 10px; opacity: .55; margin-top: 3px; text-align: right; }
+  .chat-input-bar {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: #111;
+    border-top: 1px solid #2a2a2a;
+    flex-shrink: 0;
+  }
+  .chat-input {
+    flex: 1;
+    background: #222;
+    border: 1.5px solid #2e2e2e;
+    border-radius: 22px;
+    padding: 10px 16px;
+    color: #f0f0f0;
+    font-size: 14px;
+    outline: none;
+    resize: none;
+    max-height: 100px;
+    font-family: inherit;
+  }
+  .chat-input:focus { border-color: #ff6b6b; }
+  .send-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: opacity .15s;
+    align-self: flex-end;
+  }
+  .send-btn:active { opacity: .8; }
+
+  /* ── Profile ── */
+  .profile-header {
+    background: linear-gradient(160deg, #1a1a1a, #0d0d0d);
+    padding: 32px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    box-shadow: 0 8px 24px rgba(255,107,107,.3);
+  }
+  .profile-email { font-size: 15px; font-weight: 600; color: #e0e0e0; }
+  .profile-uid { font-size: 12px; color: #555; }
+  .btn-secondary {
+    width: 100%;
+    padding: 14px;
+    background: transparent;
+    color: #ff6b6b;
+    border: 1.5px solid #ff6b6b;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    margin-bottom: 10px;
+  }
+  .btn-secondary:active { background: rgba(255,107,107,.08); }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    margin: 20px 0 10px;
+  }
+  .notif-item {
+    background: #222;
+    border-radius: 12px;
+    border: 1px solid #2e2e2e;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #bbb;
+    line-height: 1.4;
+  }
+  .notif-time { font-size: 11px; color: #555; margin-top: 4px; }
+
+  /* ── Loader / Spinner ── */
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #2a2a2a;
+    border-top-color: #ff6b6b;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin: 0 auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 20px;
+    gap: 12px;
+    color: #555;
+    font-size: 13px;
+  }
+
+  /* ── Toast ── */
+  #toast-container {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+  }
+  .toast {
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    animation: toastIn .3s cubic-bezier(.34,1.56,.64,1), toastOut .3s ease .1s forwards;
+    pointer-events: none;
+  }
+  .toast.success { background: #1f3a2e; color: #4ecdc4; border: 1px solid rgba(78,205,196,.25); }
+  .toast.error { background: #3a1f1f; color: #ff6b6b; border: 1px solid rgba(255,107,107,.25); }
+  .toast.info { background: #1f2a3a; color: #7eb8f7; border: 1px solid rgba(126,184,247,.25); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-12px) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px;
+    text-align: center;
+    gap: 10px;
+  }
+  .empty-state .big-emoji { font-size: 52px; }
+  .empty-state h3 { font-size: 18px; font-weight: 700; color: #888; }
+  .empty-state p { font-size: 14px; color: #555; line-height: 1.5; }
+
+  /* ── Pill tab (discover pet selector) ── */
+  .pill-select {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1.5px solid #2e2e2e;
+    background: transparent;
+    color: #888;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .pill.active { background: #ff6b6b; border-color: #ff6b6b; color: #fff; }
+
+  /* ── Divider ── */
+  .divider { height: 1px; background: #2a2a2a; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="screen active" style="display:flex">
+    <div class="auth-logo">🐾</div>
+    <div class="auth-heading">Snifff</div>
+    <div class="auth-sub">Find friends & dates for your furry friend</div>
+
+    <div class="auth-toggle">
+      <button class="toggle-btn active" id="toggle-login" onclick="switchAuth('login')">Login</button>
+      <button class="toggle-btn" id="toggle-register" onclick="switchAuth('register')">Register</button>
+    </div>
+
+    <form class="auth-form" id="auth-form" onsubmit="handleAuth(event)">
+      <div class="input-wrap">
+        <label class="input-label">Email</label>
+        <input class="field" type="email" id="auth-email" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="input-wrap">
+        <label class="input-label">Password</label>
+        <input class="field" type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password" minlength="6">
+      </div>
+      <div class="input-wrap" id="phone-wrap" style="display:none">
+        <label class="input-label">Phone</label>
+        <input class="field" type="tel" id="auth-phone" placeholder="+1 555 000 0000" autocomplete="tel">
+      </div>
+      <div class="error-msg" id="auth-error"></div>
+      <button class="btn-primary" type="submit" id="auth-btn">Login</button>
+    </form>
+  </div>
+
+  <!-- Main App (tabs) -->
+  <div id="main-app" style="display:none; flex-direction:column; flex:1; overflow:hidden; position:relative;">
+
+    <!-- Discover Tab -->
+    <div id="tab-discover" class="screen active">
+      <div class="topbar">
+        <span class="topbar-title">Discover 🐾</span>
+      </div>
+      <div class="scroll-area" id="discover-scroll">
+        <div class="loading-state" id="discover-loading">
+          <div class="spinner"></div>
+          <span>Finding pets near you…</span>
+        </div>
+        <div id="discover-content" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- My Pets Tab -->
+    <div id="tab-mypets" class="screen">
+      <div class="topbar">
+        <span class="topbar-title">My Pets</span>
+        <button class="topbar-action" onclick="openAddPet()">+ Add Pet</button>
+      </div>
+      <div class="scroll-area" id="mypets-scroll">
+        <div class="loading-state" id="mypets-loading">
+          <div class="spinner"></div>
+          <span>Loading your pets…</span>
+        </div>
+        <div id="mypets-content" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Matches Tab -->
+    <div id="tab-matches" class="screen">
+      <div class="topbar">
+        <span class="topbar-title">Matches 💛</span>
+      </div>
+      <div class="scroll-area" id="matches-scroll">
+        <div class="loading-state" id="matches-loading">
+          <div class="spinner"></div>
+          <span>Loading matches…</span>
+        </div>
+        <div id="matches-content" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Profile Tab -->
+    <div id="tab-profile" class="screen">
+      <div class="topbar">
+        <span class="topbar-title">Profile</span>
+      </div>
+      <div class="scroll-area" id="profile-scroll">
+        <div class="loading-state" id="profile-loading">
+          <div class="spinner"></div>
+          <span>Loading profile…</span>
+        </div>
+        <div id="profile-content" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Add Pet Panel (overlay) -->
+    <div id="add-pet-panel">
+      <div class="panel-header">
+        <button class="back-btn" onclick="closeAddPet()">←</button>
+        <span class="panel-title">Add a Pet</span>
+      </div>
+      <div class="panel-body">
+        <div class="input-wrap">
+          <label class="input-label">Pet Name *</label>
+          <input class="field" type="text" id="pet-name" placeholder="Buddy" required>
+        </div>
+        <div class="input-wrap">
+          <label class="input-label">Species *</label>
+          <select class="field" id="pet-species">
+            <option value="DOG">🐶 Dog</option>
+            <option value="CAT">🐱 Cat</option>
+            <option value="RABBIT">🐰 Rabbit</option>
+            <option value="BIRD">🐦 Bird</option>
+            <option value="EXOTIC">🦎 Exotic</option>
+            <option value="OTHER">🐾 Other</option>
+          </select>
+        </div>
+        <div class="input-wrap">
+          <label class="input-label">Breed</label>
+          <input class="field" type="text" id="pet-breed" placeholder="Golden Retriever">
+        </div>
+        <div class="input-wrap">
+          <label class="input-label">City</label>
+          <input class="field" type="text" id="pet-city" placeholder="San Francisco">
+        </div>
+        <div class="input-wrap">
+          <label class="input-label">Bio</label>
+          <textarea class="field" id="pet-bio" placeholder="Loves fetch, hates vacuum cleaners…" rows="3" style="resize:none"></textarea>
+        </div>
+        <div class="error-msg" id="pet-error"></div>
+        <button class="btn-primary" onclick="addPet()" id="add-pet-btn">Save Pet</button>
+      </div>
+    </div>
+
+    <!-- Chat Panel (overlay) -->
+    <div id="chat-panel">
+      <div class="panel-header">
+        <button class="back-btn" onclick="closeChat()">←</button>
+        <span class="panel-title" id="chat-title">Chat</span>
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-bar">
+        <textarea class="chat-input" id="chat-input" placeholder="Say something cute…" rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+        <button class="send-btn" onclick="sendMessage()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /main-app -->
+
+  <!-- Bottom Nav -->
+  <nav id="bottom-nav">
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="discover" onclick="switchTab('discover')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Discover</span>
+      </button>
+      <button class="nav-tab" data-tab="mypets" onclick="switchTab('mypets')">
+        <span style="font-size:22px">🐾</span>
+        <span>My Pets</span>
+      </button>
+      <button class="nav-tab" data-tab="matches" onclick="switchTab('matches')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span>Matches</span>
+      </button>
+      <button class="nav-tab" data-tab="profile" onclick="switchTab('profile')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Profile</span>
+      </button>
+    </div>
+  </nav>
+
+</div><!-- /app -->
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<script>
+/* ═══════════════════════════════════════════
+   CONSTANTS & STATE
+═══════════════════════════════════════════ */
+const API = 'https://snifff-api-production.up.railway.app';
+const LS_TOKEN = 'snifff_token';
+const LS_PET   = 'snifff_my_pet_id';
+
+let state = {
+  authMode: 'login',
+  token: localStorage.getItem(LS_TOKEN) || null,
+  myPetId: localStorage.getItem(LS_PET) || null,
+  myPets: [],
+  discoverQueue: [],
+  discoverIndex: 0,
+  matches: [],
+  currentChatId: null,
+  currentMatchTitle: '',
+  currentUserId: null,
+  notifs: [],
+  currentTab: 'discover',
+};
+
+/* ═══════════════════════════════════════════
+   API HELPERS
+═══════════════════════════════════════════ */
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (state.token) opts.headers['Authorization'] = 'Bearer ' + state.token;
+  if (body) opts.body = JSON.stringify(body);
+  let res;
+  try {
+    res = await fetch(API + path, opts);
+  } catch (e) {
+    throw new Error('Network error — check your connection');
+  }
+  if (res.status === 401) {
+    logout();
+    throw new Error('Session expired, please login again');
+  }
+  let data;
+  try { data = await res.json(); } catch { data = {}; }
+  if (!res.ok) {
+    const msg = data.message || data.error || `Error ${res.status}`;
+    throw new Error(Array.isArray(msg) ? msg.join(', ') : msg);
+  }
+  return data;
+}
+
+/* ═══════════════════════════════════════════
+   JWT DECODE (no verify, just payload)
+═══════════════════════════════════════════ */
+function decodeJWT(token) {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+    const json = decodeURIComponent(atob(b64).split('').map(c =>
+      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
+    return JSON.parse(json);
+  } catch { return {}; }
+}
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+function toast(msg, type = 'info', duration = 2800) {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  if (state.token) {
+    showMainApp();
+  }
+});
+
+/* ═══════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════ */
+function switchAuth(mode) {
+  state.authMode = mode;
+  document.getElementById('toggle-login').classList.toggle('active', mode === 'login');
+  document.getElementById('toggle-register').classList.toggle('active', mode === 'register');
+  document.getElementById('phone-wrap').style.display = mode === 'register' ? 'block' : 'none';
+  document.getElementById('auth-btn').textContent = mode === 'login' ? 'Login' : 'Create Account';
+  document.getElementById('auth-error').classList.remove('visible');
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const phone    = document.getElementById('auth-phone').value.trim();
+  const errEl    = document.getElementById('auth-error');
+  const btn      = document.getElementById('auth-btn');
+
+  errEl.classList.remove('visible');
+  btn.disabled = true;
+  btn.textContent = state.authMode === 'login' ? 'Logging in…' : 'Creating account…';
+
+  try {
+    let data;
+    if (state.authMode === 'login') {
+      data = await api('POST', '/v1/auth/login', { email, password });
+    } else {
+      data = await api('POST', '/v1/auth/register', { email, password, phone: phone || undefined });
+    }
+    const token = data.accessToken || data.token || (data.data && (data.data.accessToken || data.data.token));
+    if (!token) throw new Error('No token received from server');
+    state.token = token;
+    localStorage.setItem(LS_TOKEN, token);
+    toast('Welcome to Snifff! 🐾', 'success');
+    showMainApp();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = state.authMode === 'login' ? 'Login' : 'Create Account';
+  }
+}
+
+function logout() {
+  state.token = null;
+  state.myPetId = null;
+  state.myPets = [];
+  localStorage.removeItem(LS_TOKEN);
+  localStorage.removeItem(LS_PET);
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('bottom-nav').classList.remove('visible');
+  const authSc = document.getElementById('auth-screen');
+  authSc.style.display = 'flex';
+  authSc.classList.add('active');
+  document.getElementById('auth-error').classList.remove('visible');
+  toast('Logged out', 'info');
+}
+
+/* ═══════════════════════════════════════════
+   SHOW MAIN APP
+═══════════════════════════════════════════ */
+function showMainApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('auth-screen').classList.remove('active');
+  const main = document.getElementById('main-app');
+  main.style.display = 'flex';
+  document.getElementById('bottom-nav').classList.add('visible');
+
+  // decode user info
+  const payload = decodeJWT(state.token);
+  state.currentUserId = payload.sub || payload.userId || payload.id || null;
+
+  switchTab('discover');
+}
+
+/* ═══════════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════════ */
+function switchTab(tab) {
+  state.currentTab = tab;
+  document.querySelectorAll('.screen[id^="tab-"]').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  if (tab === 'discover')  loadDiscover();
+  if (tab === 'mypets')    loadMyPets();
+  if (tab === 'matches')   loadMatches();
+  if (tab === 'profile')   loadProfile();
+}
+
+/* ═══════════════════════════════════════════
+   SPECIES EMOJI
+═══════════════════════════════════════════ */
+function speciesEmoji(sp) {
+  const m = { DOG:'🐶', CAT:'🐱', RABBIT:'🐰', BIRD:'🐦', EXOTIC:'🦎', OTHER:'🐾' };
+  return m[(sp||'').toUpperCase()] || '🐾';
+}
+
+/* ═══════════════════════════════════════════
+   DISCOVER
+═══════════════════════════════════════════ */
+async function loadDiscover() {
+  setLoading('discover', true);
+  try {
+    // Ensure we have our pets first
+    if (!state.myPets.length) {
+      const petsData = await api('GET', '/v1/pets');
+      state.myPets = normalizePets(petsData);
+      if (state.myPets.length) {
+        state.myPetId = state.myPets[0].id;
+        localStorage.setItem(LS_PET, state.myPetId);
+      }
+    }
+    if (!state.myPets.length) {
+      setLoading('discover', false);
+      renderDiscoverNoPets();
+      return;
+    }
+
+    const data = await api('GET', '/v1/pets/nearby?lat=37.7749&lng=-122.4194&radiusKm=50');
+    const pets = normalizePets(data);
+    state.discoverQueue = pets.filter(p => p.id !== state.myPetId &&
+      !state.myPets.some(mp => mp.id === p.id));
+    state.discoverIndex = 0;
+    setLoading('discover', false);
+    renderDiscoverCard();
+  } catch (e) {
+    setLoading('discover', false);
+    renderError('discover', e.message);
+  }
+}
+
+function normalizePets(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.pets)) return data.pets;
+  if (data && Array.isArray(data.data)) return data.data;
+  if (data && data.data && Array.isArray(data.data.pets)) return data.data.pets;
+  return [];
+}
+
+function renderDiscoverNoPets() {
+  const el = document.getElementById('discover-content');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="empty-state">
+      <div class="big-emoji">🐾</div>
+      <h3>No pets yet!</h3>
+      <p>Add your first pet to start discovering nearby pets.</p>
+      <button class="btn-primary" style="margin-top:16px;width:auto;padding:12px 28px" onclick="switchTab('mypets')">Add a Pet</button>
+    </div>`;
+}
+
+function renderDiscoverCard() {
+  const el = document.getElementById('discover-content');
+  el.style.display = 'block';
+
+  if (state.discoverIndex >= state.discoverQueue.length) {
+    el.innerHTML = `
+      <div class="no-more">
+        <span class="big-emoji">🎉</span>
+        <h3>You've seen everyone!</h3>
+        <p>Check back later for more pets nearby.</p>
+        <button class="btn-primary" style="margin-top:20px;width:auto;padding:12px 28px" onclick="loadDiscover()">Refresh</button>
+      </div>`;
+    return;
+  }
+
+  // Pet selector pills (which of my pets is swiping)
+  let pillsHTML = '';
+  if (state.myPets.length > 1) {
+    pillsHTML = `<div class="pill-select">` +
+      state.myPets.map(p => `
+        <button class="pill ${p.id === state.myPetId ? 'active' : ''}"
+          onclick="selectSwipePet('${p.id}')">${speciesEmoji(p.species)} ${esc(p.name)}</button>
+      `).join('') + `</div>`;
+  }
+
+  const pet = state.discoverQueue[state.discoverIndex];
+  const photos = pet.photos || pet.images || [];
+  const photoHTML = photos.length
+    ? `<img class="pet-photo" src="${esc(photos[0])}" alt="${esc(pet.name)}" onerror="this.outerHTML=fallbackPhoto()">`
+    : `<div class="pet-photo-placeholder">${speciesEmoji(pet.species)}<span>No photo yet</span></div>`;
+  const dist = pet.distanceKm != null ? `📍 ${Number(pet.distanceKm).toFixed(1)} km away` :
+               pet.distance != null ? `📍 ${Number(pet.distance).toFixed(1)} km away` : '';
+
+  el.innerHTML = `
+    ${pillsHTML}
+    <div class="discover-card">
+      ${photoHTML}
+      <div class="pet-info">
+        <div class="pet-name-row">
+          <span class="pet-name">${esc(pet.name)}</span>
+          <span class="pet-species-badge">${(pet.species||'').toLowerCase()}</span>
+        </div>
+        ${pet.breed ? `<div class="pet-breed">${esc(pet.breed)}</div>` : ''}
+        ${pet.bio ? `<div class="pet-bio">${esc(pet.bio)}</div>` : ''}
+        ${dist ? `<div class="pet-distance">${dist}</div>` : ''}
+      </div>
+      <div class="swipe-actions">
+        <button class="swipe-btn btn-pass" onclick="swipe('LEFT')">❌<span>PASS</span></button>
+        <button class="swipe-btn btn-friend" onclick="swipe('RIGHT','FRIEND')">💛<span>FRIEND</span></button>
+        <button class="swipe-btn btn-date" onclick="swipe('RIGHT','DATE')">❤️<span>DATE</span></button>
+      </div>
+    </div>
+    <div style="text-align:center;color:#444;font-size:12px">${state.discoverIndex+1} of ${state.discoverQueue.length}</div>
+  `;
+}
+
+function fallbackPhoto() {
+  return `<div class="pet-photo-placeholder">🐾<span>No photo yet</span></div>`;
+}
+
+function selectSwipePet(id) {
+  state.myPetId = id;
+  localStorage.setItem(LS_PET, id);
+  renderDiscoverCard();
+}
+
+async function swipe(direction, mode) {
+  const pet = state.discoverQueue[state.discoverIndex];
+  if (!pet) return;
+  const petId = state.myPetId;
+  if (!petId) { toast('Select a pet first', 'error'); return; }
+
+  // Optimistically advance
+  state.discoverIndex++;
+  renderDiscoverCard();
+
+  if (direction === 'LEFT') return; // no API call for pass? Some APIs don't require it; still call for completeness
+
+  try {
+    await api('POST', '/v1/matches/swipe', {
+      petId,
+      targetPetId: pet.id,
+      mode: mode || 'FRIEND',
+      direction,
+    });
+    if (direction === 'RIGHT') {
+      toast(mode === 'DATE' ? '❤️ Liked!' : '💛 Friend request sent!', 'success');
+    }
+  } catch (e) {
+    // silently log — card already advanced
+    console.warn('Swipe error:', e.message);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MY PETS
+═══════════════════════════════════════════ */
+async function loadMyPets() {
+  setLoading('mypets', true);
+  try {
+    const data = await api('GET', '/v1/pets');
+    state.myPets = normalizePets(data);
+    if (state.myPets.length && !state.myPetId) {
+      state.myPetId = state.myPets[0].id;
+      localStorage.setItem(LS_PET, state.myPetId);
+    }
+    setLoading('mypets', false);
+    renderMyPets();
+  } catch (e) {
+    setLoading('mypets', false);
+    renderError('mypets', e.message);
+  }
+}
+
+function renderMyPets() {
+  const el = document.getElementById('mypets-content');
+  el.style.display = 'block';
+  if (!state.myPets.length) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="big-emoji">🐕</div>
+        <h3>No pets yet</h3>
+        <p>Tap "+ Add Pet" above to create your first pet profile.</p>
+      </div>`;
+    return;
+  }
+  el.innerHTML = state.myPets.map(p => `
+    <div class="pet-list-card">
+      <div class="pet-list-item">
+        <div class="pet-avatar">${speciesEmoji(p.species)}</div>
+        <div class="pet-list-info">
+          <div class="pet-list-name">${esc(p.name)}</div>
+          <div class="pet-list-meta">${(p.species||'').toLowerCase()}${p.breed ? ' · ' + esc(p.breed) : ''}${p.city ? ' · ' + esc(p.city) : ''}</div>
+          ${p.bio ? `<div style="font-size:12px;color:#666;margin-top:3px;line-height:1.4">${esc(p.bio)}</div>` : ''}
+        </div>
+        <div class="pet-list-actions">
+          <button class="icon-btn btn-delete" onclick="deletePet('${p.id}')" title="Delete">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openAddPet() {
+  document.getElementById('add-pet-panel').classList.add('open');
+  document.getElementById('pet-name').focus();
+}
+
+function closeAddPet() {
+  document.getElementById('add-pet-panel').classList.remove('open');
+  document.getElementById('pet-error').classList.remove('visible');
+  ['pet-name','pet-breed','pet-city','pet-bio'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('pet-species').value = 'DOG';
+}
+
+async function addPet() {
+  const name    = document.getElementById('pet-name').value.trim();
+  const species = document.getElementById('pet-species').value;
+  const breed   = document.getElementById('pet-breed').value.trim();
+  const city    = document.getElementById('pet-city').value.trim();
+  const bio     = document.getElementById('pet-bio').value.trim();
+  const errEl   = document.getElementById('pet-error');
+  const btn     = document.getElementById('add-pet-btn');
+
+  if (!name) { errEl.textContent = 'Pet name is required'; errEl.classList.add('visible'); return; }
+  errEl.classList.remove('visible');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    const body = { name, species };
+    if (breed) body.breed = breed;
+    if (city)  body.city  = city;
+    if (bio)   body.bio   = bio;
+    const data = await api('POST', '/v1/pets', body);
+    const newPet = data.pet || data.data || data;
+    if (newPet && newPet.id) {
+      state.myPets.unshift(newPet);
+      if (!state.myPetId) {
+        state.myPetId = newPet.id;
+        localStorage.setItem(LS_PET, newPet.id);
+      }
+    }
+    toast(`${speciesEmoji(species)} ${name} added!`, 'success');
+    closeAddPet();
+    renderMyPets();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Pet';
+  }
+}
+
+async function deletePet(id) {
+  if (!confirm('Delete this pet? This cannot be undone.')) return;
+  try {
+    await api('DELETE', '/v1/pets/' + id);
+    state.myPets = state.myPets.filter(p => p.id !== id);
+    if (state.myPetId === id) {
+      state.myPetId = state.myPets[0]?.id || null;
+      if (state.myPetId) localStorage.setItem(LS_PET, state.myPetId);
+      else localStorage.removeItem(LS_PET);
+    }
+    toast('Pet removed', 'info');
+    renderMyPets();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MATCHES
+═══════════════════════════════════════════ */
+async function loadMatches() {
+  setLoading('matches', true);
+  try {
+    const data = await api('GET', '/v1/matches');
+    state.matches = Array.isArray(data) ? data :
+                    Array.isArray(data.matches) ? data.matches :
+                    Array.isArray(data.data) ? data.data : [];
+    setLoading('matches', false);
+    renderMatches();
+  } catch (e) {
+    setLoading('matches', false);
+    renderError('matches', e.message);
+  }
+}
+
+function renderMatches() {
+  const el = document.getElementById('matches-content');
+  el.style.display = 'block';
+  if (!state.matches.length) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="big-emoji">💛</div>
+        <h3>No matches yet</h3>
+        <p>Start swiping in Discover to find matches for your pet!</p>
+      </div>`;
+    return;
+  }
+  el.innerHTML = state.matches.map(m => {
+    const petA = m.pet || m.petA || m.initiator || {};
+    const petB = m.targetPet || m.petB || m.target || {};
+    const nameA = petA.name || 'Unknown';
+    const nameB = petB.name || 'Unknown';
+    const mode  = m.mode || 'FRIEND';
+    const time  = m.createdAt ? new Date(m.createdAt).toLocaleDateString() : '';
+    return `
+      <div class="match-card" onclick="openChat('${m.id}','${esc(nameA)} & ${esc(nameB)}')">
+        <div class="match-avatars">
+          <div class="match-av">${speciesEmoji(petA.species)}</div>
+          <div class="match-av">${speciesEmoji(petB.species)}</div>
+        </div>
+        <div class="match-info">
+          <div class="match-names">${esc(nameA)} & ${esc(nameB)}</div>
+          <div class="match-meta">${time}</div>
+        </div>
+        <span class="match-mode ${mode}">${mode === 'DATE' ? '❤️ Date' : '💛 Friend'}</span>
+      </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════
+   CHAT
+═══════════════════════════════════════════ */
+async function openChat(matchId, title) {
+  state.currentMatchTitle = title;
+  document.getElementById('chat-title').textContent = title;
+  document.getElementById('chat-panel').classList.add('open');
+  document.getElementById('chat-messages').innerHTML = `<div class="loading-state"><div class="spinner"></div><span>Loading messages…</span></div>`;
+
+  try {
+    // Get or create chat
+    const chatData = await api('GET', '/v1/chats?matchId=' + matchId);
+    const chats = Array.isArray(chatData) ? chatData :
+                  Array.isArray(chatData.chats) ? chatData.chats :
+                  Array.isArray(chatData.data) ? chatData.data : [];
+    let chatId = chats[0]?.id;
+
+    if (!chatId) {
+      // Create chat
+      const created = await api('POST', '/v1/chats', { matchId });
+      chatId = created.id || created.data?.id || created.chat?.id;
+    }
+    if (!chatId) throw new Error('Could not open chat');
+    state.currentChatId = chatId;
+
+    const msgData = await api('GET', '/v1/chats/' + chatId + '/messages');
+    const messages = Array.isArray(msgData) ? msgData :
+                     Array.isArray(msgData.messages) ? msgData.messages :
+                     Array.isArray(msgData.data) ? msgData.data : [];
+    renderMessages(messages);
+  } catch (e) {
+    document.getElementById('chat-messages').innerHTML = `
+      <div class="empty-state">
+        <div class="big-emoji">💬</div>
+        <h3>Chat unavailable</h3>
+        <p>${esc(e.message)}</p>
+      </div>`;
+  }
+}
+
+function renderMessages(messages) {
+  const el = document.getElementById('chat-messages');
+  if (!messages.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px 20px"><div class="big-emoji">👋</div><h3>Say hello!</h3><p>Be the first to send a message.</p></div>`;
+    return;
+  }
+  el.innerHTML = messages.map(m => {
+    const mine = m.senderId === state.currentUserId ||
+                 m.sender?.id === state.currentUserId ||
+                 m.isOwn === true;
+    const time = m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+    return `
+      <div class="msg ${mine ? 'mine' : 'theirs'}">
+        ${esc(m.text || m.content || m.message || '')}
+        ${time ? `<div class="msg-time">${time}</div>` : ''}
+      </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !state.currentChatId) return;
+  input.value = '';
+
+  // Optimistic render
+  const el = document.getElementById('chat-messages');
+  // Remove empty state if present
+  const emptyState = el.querySelector('.empty-state');
+  if (emptyState) emptyState.remove();
+
+  const msgEl = document.createElement('div');
+  msgEl.className = 'msg mine';
+  msgEl.innerHTML = `${esc(text)}<div class="msg-time">sending…</div>`;
+  el.appendChild(msgEl);
+  el.scrollTop = el.scrollHeight;
+
+  try {
+    const data = await api('POST', '/v1/chats/' + state.currentChatId + '/messages', { text });
+    const time = data.createdAt ? new Date(data.createdAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    msgEl.innerHTML = `${esc(text)}<div class="msg-time">${time}</div>`;
+  } catch (e) {
+    msgEl.style.opacity = '.5';
+    msgEl.title = 'Failed to send: ' + e.message;
+    toast('Message failed: ' + e.message, 'error');
+  }
+}
+
+function closeChat() {
+  document.getElementById('chat-panel').classList.remove('open');
+  state.currentChatId = null;
+}
+
+/* ═══════════════════════════════════════════
+   PROFILE
+═══════════════════════════════════════════ */
+async function loadProfile() {
+  setLoading('profile', true);
+  try {
+    const payload = decodeJWT(state.token);
+    const email = payload.email || payload.sub || 'User';
+    const uid   = payload.sub || payload.userId || payload.id || '';
+
+    let notifsHTML = '';
+    try {
+      const nData = await api('GET', '/v1/notifications');
+      const notifs = (Array.isArray(nData) ? nData :
+                      Array.isArray(nData.notifications) ? nData.notifications :
+                      Array.isArray(nData.data) ? nData.data : []).slice(0, 10);
+      if (notifs.length) {
+        notifsHTML = `<div class="section-title">Recent Notifications</div>` +
+          notifs.map(n => {
+            const time = n.createdAt ? new Date(n.createdAt).toLocaleString() : '';
+            return `<div class="notif-item">
+              ${esc(n.message || n.body || n.title || JSON.stringify(n))}
+              ${time ? `<div class="notif-time">${time}</div>` : ''}
+            </div>`;
+          }).join('');
+      } else {
+        notifsHTML = `<div class="section-title">Notifications</div><div class="notif-item" style="color:#555;text-align:center">No notifications yet</div>`;
+      }
+    } catch { notifsHTML = ''; }
+
+    setLoading('profile', false);
+    const el = document.getElementById('profile-content');
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div class="profile-header">
+        <div class="profile-avatar">🐾</div>
+        <div class="profile-email">${esc(email)}</div>
+        ${uid ? `<div class="profile-uid">ID: ${esc(String(uid).slice(0,16))}${String(uid).length > 16 ? '…' : ''}</div>` : ''}
+      </div>
+      <div style="padding:20px">
+        <div class="section-title">Account</div>
+        <button class="btn-secondary" onclick="logout()">Log Out</button>
+        ${notifsHTML}
+      </div>`;
+  } catch (e) {
+    setLoading('profile', false);
+    renderError('profile', e.message);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════ */
+function setLoading(tab, show) {
+  document.getElementById(tab + '-loading').style.display = show ? 'flex' : 'none';
+  document.getElementById(tab + '-content').style.display = show ? 'none' : 'block';
+}
+
+function renderError(tab, msg) {
+  const el = document.getElementById(tab + '-content');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="empty-state">
+      <div class="big-emoji">⚠️</div>
+      <h3>Something went wrong</h3>
+      <p>${esc(msg)}</p>
+      <button class="btn-primary" style="margin-top:16px;width:auto;padding:12px 28px" onclick="switchTab('${tab}')">Retry</button>
+    </div>`;
+}
+
+function esc(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>

@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { PrismaService } from '@/common/prisma.service';
 import { OtpService } from './otp.service';
 import { randomBytes } from 'crypto';
+import * as bcrypt from 'bcrypt';
 
 const JWKS: Record<string, ReturnType<typeof createRemoteJWKSet>> = {
   apple:  createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys')),
@@ -13,6 +14,25 @@ const JWKS: Record<string, ReturnType<typeof createRemoteJWKSet>> = {
 @Injectable()
 export class AuthService {
   constructor(private prisma: PrismaService, private jwt: JwtService, private otp: OtpService) {}
+
+  async register(email: string, password: string, phone?: string) {
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) throw new ConflictException('email_taken');
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await this.prisma.user.create({
+      data: { email, passwordHash, phone, lastActiveAt: new Date() },
+    });
+    return this.issueTokens(user.id, user.subscriptionTier);
+  }
+
+  async login(email: string, password: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user?.passwordHash) throw new UnauthorizedException('invalid_credentials');
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) throw new UnauthorizedException('invalid_credentials');
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
+    return this.issueTokens(user.id, user.subscriptionTier);
+  }
 
   async sendOtp(phone: string) {
     await this.otp.send(phone);
